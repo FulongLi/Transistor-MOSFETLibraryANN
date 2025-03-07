@@ -8,7 +8,7 @@
         .grid-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto auto;
+            grid-template-rows: auto auto auto auto;
             gap: 20px;
             max-width: 1200px;
             margin: auto;
@@ -19,10 +19,18 @@
         button { padding: 10px; background-color: #4CAF50; color: white; border: none; }
         pre { background-color: #f4f4f4; padding: 10px; white-space: pre-wrap; }
         #mosfetPlot, #thermalPlot { width: 100%; height: 400px; }
+        .page-title { text-align: center; margin-bottom: 20px; }
+        .created-by { text-align: center; font-size: 0.9em; color: #666; }
     </style>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
+    <!-- Page Title and Created By -->
+    <div class="page-title">
+        <h1>MOSFET ANN Model Library</h1>
+        <p class="created-by">Created by Fulong Li</p>
+    </div>
+
     <div class="grid-container">
         <!-- (1,1) Input Form -->
         <div class="grid-item" style="grid-column: 1 / span 2; grid-row: 1;">
@@ -89,13 +97,13 @@
 
         <!-- (1,2) MOSFET Conduction Loss 3D Plot (ANN Surface + JSON Scatter) -->
         <div class="grid-item" style="grid-column: 1 / span 2; grid-row: 3;">
-            <h2>MOSFET Conduction Loss (ANN vs JSON)</h2>
+            <h2>MOSFET Conduction Loss (ANN vs Measured Data)</h2>
             <div id="mosfetPlot"></div>
         </div>
 
         <!-- (3,2) Thermal Impedance Comparison Plot -->
         <div class="grid-item" style="grid-column: 1 / span 2; grid-row: 4;">
-            <h2>Thermal Impedance (ANN vs. File)</h2>
+            <h2>Thermal Impedance (ANN vs Measured Data)</h2>
             <div id="thermalPlot"></div>
         </div>
     </div>
@@ -148,7 +156,7 @@
                 z: mosfetData.json.vds,
                 type: 'scatter3d',
                 mode: 'markers',
-                name: 'JSON Data',
+                name: 'Measured Data',
                 marker: {
                     size: 5,
                     color: '#ff7f0e',
@@ -189,7 +197,7 @@
                 y: fileThermalData.zth,
                 type: 'scatter',
                 mode: 'lines+markers',
-                name: 'File Data',
+                name: 'Measured Data',
                 line: { color: '#ff7f0e' },
                 marker: { size: 5 }
             }
