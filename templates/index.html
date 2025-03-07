@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Power Electronics Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 20px;
+            max-width: 1200px;
+            margin: auto;
+        }
+        .grid-item { padding: 10px; border: 1px solid #ddd; }
+        label { display: block; margin: 5px 0; }
+        input, select { width: 100%; padding: 5px; margin-bottom: 10px; }
+        button { padding: 10px; background-color: #4CAF50; color: white; border: none; }
+        pre { background-color: #f4f4f4; padding: 10px; white-space: pre-wrap; }
+        #mosfetPlot, #thermalPlot { width: 100%; height: 400px; }
+    </style>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="grid-container">
+        <!-- (1,1) Input Form -->
+        <div class="grid-item" style="grid-column: 1 / span 2; grid-row: 1;">
+            <h2>Input</h2>
+            <form method="POST">
+                <label for="model_file">Select Model File:</label>
+                <select name="model_file" id="model_file">
+                    {% for model_file in model_files %}
+                    <option value="{{ model_file }}" {% if model_file == selected_model %}selected{% endif %}>
+                        {{ model_file }}
+                    </option>
+                    {% endfor %}
+                </select>
+
+                <label for="choice">Select Calculation:</label>
+                <select name="choice" id="choice" onchange="toggleInputs()" required>
+                    <option value="1">Switching Loss</option>
+                    <option value="2">Conduction Loss (MOSFET)</option>
+                    <option value="3">Conduction Loss (Body Diode)</option>
+                    <option value="4">Thermal Impedance</option>
+                    <option value="5">Total Loss</option>
+                </select>
+
+                <label for="duty_cycle">Duty Cycle (0 to 1):</label>
+                <input type="number" step="0.01" name="duty_cycle" value="0.5" min="0" max="1" required>
+
+                <label for="f_sw">Switching Frequency (kHz):</label>
+                <input type="number" step="0.1" name="f_sw" value="20" required>
+
+                <div id="common_inputs" class="input-group">
+                    <label for="ids">Current (Ids, A):</label>
+                    <input type="number" step="0.1" name="ids" id="ids">
+                    <label for="temp">Temperature (°C):</label>
+                    <input type="number" step="0.1" name="temp" id="temp">
+                </div>
+
+                <div id="switching_inputs" class="input-group">
+                    <label for="vds">Voltage (Vds, V):</label>
+                    <input type="number" step="0.1" name="vds" id="vds">
+                    <label for="rgon">Rgon (Ω, default 2.5):</label>
+                    <input type="number" step="0.1" name="rgon" value="2.5">
+                    <label for="rgoff">Rgoff (Ω, default 2.5):</label>
+                    <input type="number" step="0.1" name="rgoff" value="2.5">
+                </div>
+
+                <div id="thermal_input" class="input-group">
+                    <label for="time">Time (s):</label>
+                    <input type="number" step="0.001" name="time" id="time">
+                </div>
+
+                <button type="submit">Calculate</button>
+            </form>
+        </div>
+
+        <!-- (2,1) Result -->
+        <div class="grid-item" style="grid-column: 1 / span 2; grid-row: 2;">
+            <h2>Result</h2>
+            {% if result %}
+            <pre>{{ result }}</pre>
+            {% else %}
+            <p>Enter values and click Calculate to see results.</p>
+            {% endif %}
+        </div>
+
+        <!-- (1,2) MOSFET Conduction Loss 3D Plot (ANN Surface + JSON Scatter) -->
+        <div class="grid-item" style="grid-column: 1 / span 2; grid-row: 3;">
+            <h2>MOSFET Conduction Loss (ANN vs JSON)</h2>
+            <div id="mosfetPlot"></div>
+        </div>
+
+        <!-- (3,2) Thermal Impedance Comparison Plot -->
+        <div class="grid-item" style="grid-column: 1 / span 2; grid-row: 4;">
+            <h2>Thermal Impedance (ANN vs. File)</h2>
+            <div id="thermalPlot"></div>
+        </div>
+    </div>
+
+    <script>
+        function toggleInputs() {
+            const choice = document.getElementById('choice').value;
+            const commonInputs = document.getElementById('common_inputs');
+            const switchingInputs = document.getElementById('switching_inputs');
+            const thermalInput = document.getElementById('thermal_input');
+
+            commonInputs.style.display = 'none';
+            switchingInputs.style.display = 'none';
+            thermalInput.style.display = 'none';
+
+            if (choice == '1' || choice == '5') {
+                commonInputs.style.display = 'block';
+                switchingInputs.style.display = 'block';
+            } else if (choice == '2' || choice == '3') {
+                commonInputs.style.display = 'block';
+            } else if (choice == '4') {
+                thermalInput.style.display = 'block';
+            }
+        }
+        toggleInputs();
+
+        // MOSFET Conduction Loss Plot (ANN Surface + JSON Scatter)
+        const mosfetData = {{ mosfet_3d_data | tojson }};
+        const mosfetPlotData = [];
+
+        // Add ANN surface if available
+        if (mosfetData.ann && mosfetData.ann.currents.length > 0 && mosfetData.ann.temps.length > 0) {
+            mosfetPlotData.push({
+                x: mosfetData.ann.currents,
+                y: mosfetData.ann.temps,
+                z: mosfetData.ann.vds,
+                type: 'surface',
+                name: 'ANN Model',
+                colorscale: 'Viridis',
+                opacity: 0.9,
+                showscale: true
+            });
+        }
+
+        // Add JSON scatter if available
+        if (mosfetData.json && mosfetData.json.ids.length > 0) {
+            mosfetPlotData.push({
+                x: mosfetData.json.ids,
+                y: mosfetData.json.temps,
+                z: mosfetData.json.vds,
+                type: 'scatter3d',
+                mode: 'markers',
+                name: 'JSON Data',
+                marker: {
+                    size: 5,
+                    color: '#ff7f0e',
+                    opacity: 0.8
+                }
+            });
+        }
+
+        const mosfetLayout = {
+            scene: {
+                xaxis: { title: 'Current (A)' },
+                yaxis: { title: 'Temperature (°C)' },
+                zaxis: { title: 'Vds (V)' },
+                camera: { eye: { x: 1.5, y: 1.5, z: 1.5 } }
+            },
+            margin: { l: 0, r: 0, b: 0, t: 0 },
+            height: 400,
+            legend: { x: 1, y: 1 }
+        };
+
+        Plotly.newPlot('mosfetPlot', mosfetPlotData, mosfetLayout);
+
+        // Thermal Impedance Comparison Plot (log scales)
+        const annThermalData = {{ ann_thermal_data | tojson }};
+        const fileThermalData = {{ file_thermal_data | tojson }};
+        const thermalPlotData = [
+            {
+                x: annThermalData.times,
+                y: annThermalData.zth,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'ANN Model',
+                line: { color: '#1f77b4' },
+                marker: { size: 5 }
+            },
+            {
+                x: fileThermalData.times,
+                y: fileThermalData.zth,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'File Data',
+                line: { color: '#ff7f0e' },
+                marker: { size: 5 }
+            }
+        ];
+
+        const thermalLayout = {
+            xaxis: {
+                title: 'Time (s)',
+                type: 'log',
+                autorange: true
+            },
+            yaxis: {
+                title: 'Zth_jc (K/W)',
+                type: 'log',
+                autorange: true
+            },
+            margin: { l: 50, r: 0, b: 50, t: 0 },
+            height: 400,
+            legend: { x: 1, y: 1 }
+        };
+
+        Plotly.newPlot('thermalPlot', thermalPlotData, thermalLayout);
+    </script>
+</body>
+</html>

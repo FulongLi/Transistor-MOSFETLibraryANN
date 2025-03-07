@@ -169,18 +169,18 @@ class CombinedANNModel(nn.Module):
     def __init__(self):
         super(CombinedANNModel, self).__init__()
         # Switching layers (5 inputs: Current, Voltage, Temperature, Rgon, Rgoff)
-        self.switch_fc1 = nn.Linear(5, 16)
-        self.switch_fc2 = nn.Linear(16, 16)
-        self.switch_fc3_on = nn.Linear(16, 1)  # Turn-On output
-        self.switch_fc3_off = nn.Linear(16, 1)  # Turn-Off output
+        self.switch_fc1 = nn.Linear(5, 32)
+        self.switch_fc2 = nn.Linear(32, 32)
+        self.switch_fc3_on = nn.Linear(32, 1)  # Turn-On output
+        self.switch_fc3_off = nn.Linear(32, 1)  # Turn-Off output
         # Conduction MOSFET layers (2 inputs: Ids, Temperature)
-        self.cond_mosfet_fc1 = nn.Linear(2, 25)
-        self.cond_mosfet_fc2 = nn.Linear(25, 16)
-        self.cond_mosfet_fc3 = nn.Linear(16, 1)
+        self.cond_mosfet_fc1 = nn.Linear(2, 32)
+        self.cond_mosfet_fc2 = nn.Linear(32, 32)
+        self.cond_mosfet_fc3 = nn.Linear(32, 1)
         # Conduction BodyDiode layers (2 inputs: Ids, Temperature)
-        self.cond_diode_fc1 = nn.Linear(2, 25)
-        self.cond_diode_fc2 = nn.Linear(25, 16)
-        self.cond_diode_fc3 = nn.Linear(16, 1)
+        self.cond_diode_fc1 = nn.Linear(2, 32)
+        self.cond_diode_fc2 = nn.Linear(32, 32)
+        self.cond_diode_fc3 = nn.Linear(32, 1)
         # Thermal layers (1 input: Time)
         self.therm_fc1 = nn.Linear(1, 64)
         self.therm_fc2 = nn.Linear(64, 64)
