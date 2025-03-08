@@ -13,7 +13,6 @@ torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
 
-
 # Define the CombinedANNModel
 class CombinedANNModel(nn.Module):
     def __init__(self):
@@ -57,7 +56,6 @@ class CombinedANNModel(nn.Module):
         else:
             raise ValueError("Invalid task specified")
 
-
 # Load model and scalers based on selected .pth file
 def load_model_and_scalers(model_file):
     base_name = model_file.replace('_ANN_Trainned_Model.pth', '')
@@ -73,14 +71,12 @@ def load_model_and_scalers(model_file):
     scaler_conduction_diode = joblib.load(os.path.join('models', scaler_conduction_diode_file))
     return model, scaler_switching, scaler_conduction_mosfet, scaler_conduction_diode
 
-
 # Get list of .pth model files in the models directory
 def get_model_files():
     model_dir = 'models'
     if not os.path.exists(model_dir):
         return ['c2m0080120d_ANN_Trainned_Model.pth']
     return [f for f in os.listdir(model_dir) if f.endswith('_ANN_Trainned_Model.pth')]
-
 
 # Load JSON data
 def load_json_data(model_file):
@@ -90,7 +86,6 @@ def load_json_data(model_file):
         with open(json_file, 'r') as f:
             return json.load(f)
     return None
-
 
 # Load thermal impedance data from file
 def load_thermal_file_data(model_file):
@@ -108,12 +103,10 @@ def load_thermal_file_data(model_file):
             return {'times': times, 'zth': zth_values}
     return {'times': [0], 'zth': [0]}  # Fallback if file not found
 
-
 # Generate 3D MOSFET conduction loss plot data (ANN as surface, JSON as scatter)
 def generate_mosfet_3d_plot_data(model, scaler_conduction_mosfet, json_data):
-    # ANN data (generate a grid for surface)
-    currents = np.linspace(0, 80, 50)  # Finer grid for smooth surface
-    temps = np.linspace(-25, 175, 50)  # Finer grid for smooth surface
+    currents = np.linspace(0, 80, 50)
+    temps = np.linspace(-25, 175, 50)
     current_grid, temp_grid = np.meshgrid(currents, temps)
     ann_vds_grid = np.zeros_like(current_grid)
 
@@ -127,14 +120,12 @@ def generate_mosfet_3d_plot_data(model, scaler_conduction_mosfet, json_data):
                 X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
                 with torch.no_grad():
                     vds_pred = model(X_tensor, task='conduction_mosfet').item()
-                ann_vds_grid[i, j] = max(vds_pred, 0)  # Ensure non-negative
+                ann_vds_grid[i, j] = max(vds_pred, 0)
             except Exception as e:
-                ann_vds_grid[i, j] = 0.0  # Default to 0 if error occurs
+                ann_vds_grid[i, j] = 0.0
 
-    # Convert NumPy array to list for JSON serialization
     ann_vds_list = ann_vds_grid.tolist()
 
-    # JSON data (scatter points)
     json_ids_values = []
     json_temp_values = []
     json_vds_values = []
@@ -146,7 +137,7 @@ def generate_mosfet_3d_plot_data(model, scaler_conduction_mosfet, json_data):
         for temp_idx, temp in enumerate(json_temps):
             vds_row = json_vds_data[temp_idx]
             for ids_idx, ids in enumerate(json_currents):
-                if ids >= 0:  # Only positive currents for MOSFET
+                if ids >= 0:
                     json_ids_values.append(ids)
                     json_temp_values.append(temp)
                     json_vds_values.append(vds_row[ids_idx])
@@ -156,24 +147,110 @@ def generate_mosfet_3d_plot_data(model, scaler_conduction_mosfet, json_data):
         'json': {'ids': json_ids_values, 'temps': json_temp_values, 'vds': json_vds_values}
     }
 
-
 # Generate thermal impedance plot data (ANN)
 def generate_thermal_impedance_data(model):
-    times = np.logspace(-6, 0, 50)  # 1 µs to 1 s
+    times = np.logspace(-6, 0, 500)
     zth_values = []
 
     for time in times:
         X_input = torch.tensor([[time]], dtype=torch.float32)
         with torch.no_grad():
-            zth_pred = max(model(X_input, task='thermal').item(), 1e-6)  # Ensure positive for log scale
+            zth_pred = max(model(X_input, task='thermal').item(), 1e-6)
         zth_values.append(zth_pred)
 
     return {'times': times.tolist(), 'zth': zth_values}
 
+# Generate switching loss plot data (ANN with optional Measured Data)
+def generate_switching_loss_data(model, scaler_switching, json_data, rgon, rgoff, temp):
+    ids = np.linspace(0, 40, 50)  # Current (Ids) from 0 to 40 A
+    vds = np.linspace(0, 850, 50)  # Voltage (Vds) from 0 to 850 V
+    ids_grid, vds_grid = np.meshgrid(ids, vds)
+
+    # Prepare inputs for ANN model (Ids, Vds, Temp, Rgon, Rgoff)
+    inputs = []
+    for i in range(len(ids)):
+        for j in range(len(vds)):
+            inputs.append([ids[i], vds[j], temp, rgon, rgoff])
+    inputs = np.array(inputs)
+    inputs_scaled = scaler_switching.transform(inputs)
+    inputs_tensor = torch.tensor(inputs_scaled, dtype=torch.float32)
+
+    # Predict Eon and Eoff using ANN model
+    with torch.no_grad():
+        eon_pred = model(inputs_tensor, task='switching_on').numpy().reshape(len(vds), len(ids)).tolist()
+        eoff_pred = model(inputs_tensor, task='switching_off').numpy().reshape(len(vds), len(ids)).tolist()
+
+    # Extract Measured Data from JSON if conditions match exactly
+    eon_measured = {'ids': [], 'vds': [], 'eon': []}
+    eoff_measured = {'ids': [], 'vds': [], 'eoff': []}
+    has_measured_data = False
+
+    # Check Rgon and Rgoff condition using the formula: (0.0101*Rgon + 0.4925)/(0.0101*2.5 + 0.4925) == 1
+    base_factor = 0.0101 * 2.5 + 0.4925  # 0.51775
+    rgon_factor = 0.0101 * rgon + 0.4925
+    rgoff_factor = 0.0101 * rgoff + 0.4925
+    rgon_ratio = rgon_factor / base_factor
+    rgoff_ratio = rgoff_factor / base_factor
+
+    # Only proceed if both Rgon and Rgoff satisfy the condition (within a small tolerance)
+    if abs(rgon_ratio - 1.0) < 1e-6 and abs(rgoff_ratio - 1.0) < 1e-6:
+        if json_data and 'SemiconductorData' in json_data:
+            # Check TurnOnLoss (match Temperature exactly)
+            if 'TurnOnLoss' in json_data['SemiconductorData']:
+                turn_on_data = json_data['SemiconductorData']['TurnOnLoss']['Energy']['Data']
+                current_axis = json_data['SemiconductorData']['TurnOnLoss']['CurrentAxis']
+                voltage_axis = json_data['SemiconductorData']['TurnOnLoss']['VoltageAxis']
+                for condition in turn_on_data:
+                    condition_temp = condition['Temperature']
+                    if condition_temp == temp:  # Exact temperature match
+                        for voltage_data in condition['Voltages']:
+                            vds_value = voltage_data['Voltage']
+                            if vds_value >= 0:  # Include all positive Vds values
+                                eon_values = voltage_data['Values']
+                                for idx, eon in enumerate(eon_values):
+                                    ids_value = current_axis[idx]
+                                    if ids_value >= 0 and eon > 0:
+                                        eon_measured['ids'].append(ids_value)
+                                        eon_measured['vds'].append(vds_value)
+                                        eon_measured['eon'].append(eon)  # No additional scaling, already in µJ
+                                        has_measured_data = True
+
+            # Check TurnOffLoss (match Temperature exactly)
+            if 'TurnOffLoss' in json_data['SemiconductorData']:
+                turn_off_data = json_data['SemiconductorData']['TurnOffLoss']['Energy']['Data']
+                current_axis = json_data['SemiconductorData']['TurnOffLoss']['CurrentAxis']
+                voltage_axis = json_data['SemiconductorData']['TurnOffLoss']['VoltageAxis']
+                for condition in turn_off_data:
+                    condition_temp = condition['Temperature']
+                    if condition_temp == temp:  # Exact temperature match
+                        for voltage_data in condition['Voltages']:
+                            vds_value = voltage_data['Voltage']
+                            if vds_value >= 0:  # Include all positive Vds values
+                                eoff_values = voltage_data['Values']
+                                for idx, eoff in enumerate(eoff_values):
+                                    ids_value = current_axis[idx]
+                                    if ids_value >= 0 and eoff > 0:
+                                        eoff_measured['ids'].append(ids_value)
+                                        eoff_measured['vds'].append(vds_value)
+                                        eoff_measured['eoff'].append(eoff)  # No additional scaling, already in µJ
+                                        has_measured_data = True
+
+    return {
+        'ann': {
+            'ids': ids.tolist(),
+            'vds': vds.tolist(),
+            'eon': eon_pred,
+            'eoff': eoff_pred
+        },
+        'measured': {
+            'eon': eon_measured,
+            'eoff': eoff_measured
+        },
+        'has_measured_data': has_measured_data
+    }
 
 # Initialize Flask app
 app = Flask(__name__)
-
 
 # Home route
 @app.route('/', methods=['GET', 'POST'])
@@ -187,7 +264,20 @@ def home():
     mosfet_3d_data = generate_mosfet_3d_plot_data(model, scaler_conduction_mosfet, json_data)
     ann_thermal_data = generate_thermal_impedance_data(model)
     file_thermal_data = load_thermal_file_data(selected_model)
+    switching_loss_data = {
+        'ann': {'ids': [], 'vds': [], 'eon': [], 'eoff': []},
+        'measured': {'eon': {'ids': [], 'vds': [], 'eon': []}, 'eoff': {'ids': [], 'vds': [], 'eoff': []}},
+        'has_measured_data': False
+    }
     result = ""
+
+    # Extract package information for display
+    package_info = {}
+    if json_data and 'Package' in json_data:
+        package_info = {
+            'type': json_data['Package'].get('type', 'N/A'),
+            'price': json_data['Package'].get('price', 'N/A')
+        }
 
     if request.method == 'POST':
         choice = int(request.form.get('choice', 0))
@@ -219,6 +309,8 @@ def home():
                         f"  - Switching Frequency (f_sw): {f_sw / 1000:.1f} kHz = {f_sw:.0f} Hz\n"
                         f"  - Switching Loss = (E_on + E_off) * f_sw * 1e-6 = {p_switching:.3f} W"
                     )
+                    # Generate switching loss data for plotting (ANN with optional Measured Data)
+                    switching_loss_data = generate_switching_loss_data(model, scaler_switching, json_data, rgon, rgoff, temp)
 
                 elif choice == 2:  # Conduction Loss (MOSFET)
                     ids = float(request.form['ids'])
@@ -308,6 +400,8 @@ def home():
                         f"    - Switching Loss = (E_on + E_off) * f_sw * 1e-6 = {p_switching:.3f} W\n"
                         f"  - Total Loss = Conduction Loss + Switching Loss = {p_total:.3f} W"
                     )
+                    # Generate switching loss data for plotting (ANN with optional Measured Data)
+                    switching_loss_data = generate_switching_loss_data(model, scaler_switching, json_data, rgon, rgoff, temp)
 
                 else:
                     result = "⚠️ Invalid choice! Please select 1, 2, 3, 4, or 5."
@@ -317,8 +411,8 @@ def home():
 
     return render_template('index.html', result=result, mosfet_3d_data=mosfet_3d_data,
                            ann_thermal_data=ann_thermal_data, file_thermal_data=file_thermal_data,
-                           model_files=model_files, selected_model=selected_model)
-
+                           switching_loss_data=switching_loss_data, model_files=model_files,
+                           selected_model=selected_model, package_info=package_info)
 
 if __name__ == '__main__':
     app.run(debug=True)
