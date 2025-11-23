@@ -1,20 +1,20 @@
-# 🔬 MOSFET Power Loss & Thermal Modeling using Artificial Neural Networks (ANNs)
+# MOSFET Power Loss & Thermal Modeling using Artificial Neural Networks (ANNs)
 
 ## **Overview**
 This project utilizes **Artificial Neural Networks (ANNs)** to predict **MOSFET switching losses, conduction losses, and thermal impedance**. The trained models enable **accurate power loss estimation** and **thermal behavior analysis**, crucial for optimizing power electronics applications. The project includes a **web-based interface** built with Flask for interactive predictions and visualization.
 
-## **🚀 Key Features**
-✔️ **Switching Loss Prediction**: Estimates **Turn-On & Turn-Off energy losses** under different **Gate Resistor (Rgon, Rgoff) values**.  
-✔️ **Conduction Loss Model**: Predicts **Drain-Source Voltage (Vds)** based on **Drain Current (Ids) and Temperature** for both MOSFET and Body Diode modes.  
-✔️ **Thermal Impedance Model**: Estimates **Junction-to-Case Thermal Impedance (Zth_jc)** over time.  
-✔️ **Machine Learning Models**: Trains and saves **ANN-based models** using **PyTorch**.  
-✔️ **Web-Based Interface**: Interactive Flask web application with **3D visualizations** and **real-time predictions**.  
-✔️ **Multiple Model Support**: Supports multiple MOSFET models with automatic model selection.  
-✔️ **Total Loss Calculation**: Combines switching and conduction losses for comprehensive power analysis.
+## **Key Features**
+- **Switching Loss Prediction**: Estimates **Turn-On & Turn-Off energy losses** under different **Gate Resistor (Rgon, Rgoff) values**.  
+- **Conduction Loss Model**: Predicts **Drain-Source Voltage (Vds)** based on **Drain Current (Ids) and Temperature** for both MOSFET and Body Diode modes.  
+- **Thermal Impedance Model**: Estimates **Junction-to-Case Thermal Impedance (Zth_jc)** over time.  
+- **Machine Learning Models**: Trains and saves **ANN-based models** using **PyTorch**.  
+- **Web-Based Interface**: Interactive Flask web application with **3D visualizations** and **real-time predictions**.  
+- **Multiple Model Support**: Supports multiple MOSFET models with automatic model selection.  
+- **Total Loss Calculation**: Combines switching and conduction losses for comprehensive power analysis.
 
 ---
 
-## **📌 Project Objectives**
+## **Project Objectives**
 - **Develop ANN models** for **MOSFET switching, conduction, and thermal performance**.
 - **Train ANNs using real or simulated datasets** for high-accuracy predictions.
 - **Optimize power loss estimation** based on **operating conditions**.
@@ -22,7 +22,7 @@ This project utilizes **Artificial Neural Networks (ANNs)** to predict **MOSFET 
 
 ---
 
-## **📁 Project Structure**
+## **Project Structure**
 
 ```
 Transistor-MOSFETLibraryANN/
@@ -55,7 +55,7 @@ Transistor-MOSFETLibraryANN/
 
 ---
 
-## **🛠️ Installation**
+## **Installation**
 
 ### **Prerequisites**
 - Python 3.7 or higher
@@ -83,7 +83,7 @@ pip install -r requirements.txt
 
 ---
 
-## **🚀 Usage**
+## **Usage**
 
 ### **Running the Web Application**
 
@@ -138,7 +138,7 @@ pip install -r requirements.txt
 
 ---
 
-## **🧪 Model Training**
+## **Model Training**
 
 ### **Training New Models**
 
@@ -180,7 +180,7 @@ python C2Mseries_Full_Model_Test.py
 
 ---
 
-## **📊 Features & Visualizations**
+## **Features & Visualizations**
 
 The web interface provides:
 
@@ -192,7 +192,7 @@ The web interface provides:
 
 ---
 
-## **🔧 Technical Details**
+## **Technical Details**
 
 ### **Switching Loss Scaling**
 The model accounts for gate resistor effects using scaling factors:
@@ -211,7 +211,7 @@ The model accounts for gate resistor effects using scaling factors:
 
 ---
 
-## **📝 File Formats**
+## **File Formats**
 
 ### **JSON Data Format**
 The JSON file should contain:
@@ -226,25 +226,25 @@ Thermal impedance data can be provided as:
 
 ---
 
-## **🤝 Contributing**
+## **Contributing**
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## **📄 License**
+## **License**
 
 See the `LICENSE` file for details.
 
 ---
 
-## **👤 Author**
+## **Author**
 
 **Fulong Li**
 
 ---
 
-## **📚 References**
+## **References**
 
 - PyTorch Documentation: https://pytorch.org/docs/
 - Flask Documentation: https://flask.palletsprojects.com/
@@ -252,7 +252,7 @@ See the `LICENSE` file for details.
 
 ---
 
-## **⚠️ Notes**
+## **Notes**
 
 - Ensure all model files and scalers are present in the `models/` directory before running predictions
 - The models are trained on specific MOSFET data (C2M series). For other MOSFETs, retrain with appropriate data
@@ -260,7 +260,7 @@ See the `LICENSE` file for details.
 
 ---
 
-## **🔮 Future Enhancements**
+## **Future Enhancements**
 
 - [ ] Support for additional MOSFET families
 - [ ] Batch prediction capabilities
